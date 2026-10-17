@@ -1,16 +1,15 @@
 """Extraction d'articles NewsData.io (texte + image) vers JSON Lines."""
 import argparse
-import json
 import logging
 import os
 import requests
 import time
-from pathlib import Path
+
 
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 
-
+from common import clean_records, save_jsonl
 
 # --- Configuration ---
 
@@ -20,7 +19,7 @@ load_dotenv()
 API_KEY = os.getenv("NEWSDATA_API_KEY")
 BASE_URL = "https://newsdata.io/api/1/latest"
 LANGUAGE = "fr"
-OUTPUT_DIR = Path("data/raw")
+
 
 FIELDS = [
     "article_id", "link", "title", "description", "image_url",
@@ -66,30 +65,6 @@ def parse_articles(data):
     logger.info("%d articles parsés", len(records))
     return records
 
-def clean_records(records):
-    """Écarte les articles sans titre ou sans image (non multimodaux)."""
-    kept = [r for r in records if r.get("title") and r.get("image_url")]
-    logger.info(
-        "%d articles conservés, %d écartés (titre ou image manquant)",
-        len(kept), len(records) - len(kept),
-    )
-    return kept
-
-def save_jsonl(records, source_name="newsdata"):
-    """Ajoute les enregistrements au fichier JSON Lines du jour."""
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    date = datetime.now(timezone.utc).strftime("%Y%m%d")
-    path = OUTPUT_DIR / f"{source_name}_{date}.jsonl"
-    try:
-        with path.open("a", encoding="utf-8") as file:
-            for record in records:
-                file.write(json.dumps(record, ensure_ascii=False) + "\n")
-    except OSError as error:
-        logger.error("Échec de l'écriture dans %s : %s", path, error)
-        return None
-    logger.info("%d articles sauvegardés dans %s", len(records), path)
-    return path
-
 def run(language=LANGUAGE, max_pages=MAX_PAGES):
     """Enchaîne connexion, parsing, nettoyage et sauvegarde sur plusieurs pages."""
     page_token = None
@@ -101,7 +76,7 @@ def run(language=LANGUAGE, max_pages=MAX_PAGES):
             break
         records = clean_records(parse_articles(data))
         if records:
-            save_jsonl(records)
+            save_jsonl(records, "newsdata")
             total += len(records)
         page_token = data.get("nextPage")
         if not page_token:
