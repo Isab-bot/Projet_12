@@ -1,4 +1,5 @@
 """Extraction d'articles NewsData.io (texte + image) vers JSON Lines."""
+import argparse
 import json
 import logging
 import os
@@ -34,10 +35,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def fetch_page(page_token=None):
+def fetch_page(page_token=None, language=LANGUAGE):
     """Appelle l'API et renvoie la réponse JSON d'une page, ou None en cas d'échec."""
     headers = {"X-ACCESS-KEY": API_KEY}
-    params = {"language": LANGUAGE}
+    params = {"language": language}
     if page_token:
         params["page"] = page_token
     try:
@@ -89,13 +90,13 @@ def save_jsonl(records, source_name="newsdata"):
     logger.info("%d articles sauvegardés dans %s", len(records), path)
     return path
 
-def run(max_pages=MAX_PAGES):
+def run(language=LANGUAGE, max_pages=MAX_PAGES):
     """Enchaîne connexion, parsing, nettoyage et sauvegarde sur plusieurs pages."""
     page_token = None
     total = 0
     for page_number in range(1, max_pages + 1):
         logger.info("Page %d", page_number)
-        data = fetch_page(page_token)
+        data = fetch_page(page_token, language)
         if data is None:
             break
         records = clean_records(parse_articles(data))
@@ -106,9 +107,14 @@ def run(max_pages=MAX_PAGES):
         if not page_token:
             logger.info("Plus de page disponible")
             break
-        time.sleep(PAUSE_SECONDS)
+        if page_number < max_pages:
+            time.sleep(PAUSE_SECONDS)
     logger.info("Extraction terminée : %d articles sauvegardés", total)
     return total
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(description="Extraction d'articles NewsData.io")
+    parser.add_argument("--language", default=LANGUAGE, help="Code langue (ex. fr, en)")
+    parser.add_argument("--max-pages", type=int, default=MAX_PAGES, help="Nombre maximal de pages")
+    args = parser.parse_args()
+    run(language=args.language, max_pages=args.max_pages)
