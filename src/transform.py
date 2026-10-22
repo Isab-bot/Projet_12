@@ -8,6 +8,11 @@ import unicodedata
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from collections import Counter
+import hashlib
+from io import BytesIO
+
+import requests
+from PIL import Image
 
 # --- Configuration ---
 RAW_DIR = Path("data/raw")
@@ -27,6 +32,13 @@ FAKEDDIT_LABELS = {
 
 # Champs toujours renseignés dans le schéma commun
 REQUIRED_FIELDS = ["id", "source", "title", "image_url", "published_at", "collected_at", "language"]
+
+IMAGES_DIR = Path("data/images")
+TIMEOUT = 10  # secondes
+IMAGE_EXTENSIONS = {"JPEG": "jpg"}  # sinon : format en minuscules (png, webp, gif)
+
+# Identification du client auprès des serveurs (évite le User-Agent par défaut, fortement limité)
+HEADERS = {"User-Agent": "CheckIt-AI-pipeline/0.1 (projet de formation OpenClassrooms)"}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -228,9 +240,75 @@ def deduplicate(records):
         logger.info("  doublons – %s : %d", source, count)
     return list(latest.values())
 
+def image_filename(record_id):
+    """Renvoie un nom de fichier sûr et déterministe dérivé de l'id (sans extension)."""
+    return hashlib.sha256(record_id.encode("utf-8")).hexdigest()
+
+def validate_image(record, session):
+    """Vérifie que l'image est accessible et lisible, et complète l'enregistrement.
+
+    Renvoie (enregistrement complété, None) si l'image est valide, (None, motif) sinon.
+    """
+    name = image_filename(record["id"])
+    existing = next(IMAGES_DIR.glob(f"{name}.*"), None)
+
+    # 1. Accessibilité (ou relecture si déjà téléchargée)
+    try:
+        if existing:
+            content = existing.read_bytes()
+        else:
+            response = session.get(record["image_url"], timeout=TIMEOUT)
+            response.raise_for_status()
+            content = response.content
+    except requests.HTTPError as error:
+        return None, f"erreur HTTP {error.response.status_code}"
+    except requests.RequestException:
+        return None, "image inaccessible (connexion ou délai)"
+
+    # 2. Nature du fichier et 3. dimensions
+    try:
+        with Image.open(BytesIO(content)) as image:
+            image.load()  # décode toute l'image : détecte aussi les fichiers tronqués
+            width, height = image.size
+            extension = IMAGE_EXTENSIONS.get(image.format, image.format.lower())
+    except (OSError, Image.DecompressionBombError):
+        return None, "image illisible"
+
+    # Enregistrement local
+    path = existing or IMAGES_DIR / f"{name}.{extension}"
+    if not existing:
+        try:
+            path.write_bytes(content)
+        except OSError:
+            return None, "écriture impossible"
+
+    return {**record, "image_path": path.as_posix(), "image_width": width, "image_height": height}, None
+
+
+def validate_images(records):
+    """Ne garde que les enregistrements dont l'image est valide."""
+    IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    valid = []
+    rejected = Counter()
+    with requests.Session() as session:
+        session.headers.update(HEADERS)
+        for count, record in enumerate(records, start=1):
+            if count % 200 == 0:
+                logger.info("  images traitées : %d / %d", count, len(records))
+            checked, reason = validate_image(record, session)
+            if reason:
+                rejected[(record["source"], reason)] += 1
+            else:
+                valid.append(checked)
+    logger.info("%d images valides, %d rejetées", len(valid), sum(rejected.values()))
+    for (source, reason), nb in sorted(rejected.items()):
+        logger.info("  rejet – %s – %s : %d", source, reason, nb)
+    return valid
+
+
 
 if __name__ == "__main__":
     records = read_jsonl()
     records = deduplicate(check_required(transform_records(records)))
-   
+    records = validate_images(records)
     
