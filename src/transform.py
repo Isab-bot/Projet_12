@@ -5,6 +5,8 @@ from pathlib import Path
 import html
 import re
 import unicodedata
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 # --- Configuration ---
 RAW_DIR = Path("data/raw")
@@ -41,6 +43,27 @@ def clean_text(text):
     text = re.sub(r"\s+", " ", text).strip()      # blancs multiples -> un espace
     return text or None
 
+def parse_date(value, source):
+    """Convertit une date brute en chaîne ISO 8601 UTC ; renvoie None si illisible."""
+    try:
+        if source == "newsdata":
+            # pubDate sans fuseau ; pubDateTZ vaut "UTC" dans les données observées
+            date = datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        elif source == "decodeurs":
+            # format des flux RSS : "Fri, 16 Oct 2026 17:59:32 +0200"
+            date = parsedate_to_datetime(value)
+        elif source == "fakeddit":
+            # timestamp Unix : secondes depuis le 1er janvier 1970 UTC
+            date = datetime.fromtimestamp(float(value), tz=timezone.utc)
+        else:
+            return None
+        return date.astimezone(timezone.utc).isoformat()
+    except (TypeError, ValueError):
+        return None
+
 if __name__ == "__main__":
-    print(repr(clean_text("  <b>CHOQUANT</b>&nbsp;: l&#8217;image   !!!\n ")))
+    print(parse_date("2026-10-16 21:38:51", "newsdata"))
+    print(parse_date("Fri, 16 Oct 2026 17:59:32 +0200", "decodeurs"))
+    print(parse_date(1551398400.0, "fakeddit"))
+    print(parse_date("pas une date", "decodeurs"))
     read_jsonl()
