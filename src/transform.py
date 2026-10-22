@@ -42,6 +42,8 @@ HEADERS = {"User-Agent": "CheckIt-AI-pipeline/0.1 (projet de formation OpenClass
 
 MIN_IMAGE_SIDE = 64  # px : sous ce seuil, icônes (favicons) ou images inexploitables
 
+PROCESSED_PATH = Path("data/processed/publications.jsonl")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -317,10 +319,27 @@ def validate_images(records):
         )
     return valid
 
+def export_jsonl(records, path=PROCESSED_PATH):
+    """Écrit les enregistrements propres en JSON Lines ; renvoie le chemin, ou None en cas d'échec."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as file:
+            for record in records:
+                file.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except OSError as error:
+        logger.error("Écriture impossible : %s (%s)", path, error)
+        return None
+    logger.info("%d enregistrements exportés : %s", len(records), path)
+    return path
 
-
-if __name__ == "__main__":
+def run():
+    """Exécute le pipeline de transformation ; renvoie le nombre d'enregistrements exportés."""
     records = read_jsonl()
     records = deduplicate(check_required(transform_records(records)))
     records = validate_images(records)
+    return len(records) if export_jsonl(records) else 0
+
+
+if __name__ == "__main__":
+    run()
   
