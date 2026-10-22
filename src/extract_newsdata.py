@@ -75,9 +75,9 @@ def run(language=LANGUAGE, max_pages=MAX_PAGES):
         if data is None:
             break
         records = clean_records(parse_articles(data))
-        if records:
-            save_jsonl(records, "newsdata")
+        if records and save_jsonl(records, "newsdata"):
             total += len(records)
+            
         page_token = data.get("nextPage")
         if not page_token:
             logger.info("Plus de page disponible")
