@@ -7,6 +7,7 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from collections import Counter
 
 # --- Configuration ---
 RAW_DIR = Path("data/raw")
@@ -23,6 +24,9 @@ FAKEDDIT_LABELS = {
     4: "manipulated_content",
     5: "misleading_content",
 }
+
+# Champs toujours renseignés dans le schéma commun
+REQUIRED_FIELDS = ["id", "source", "title", "image_url", "published_at", "collected_at", "language"]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -73,6 +77,7 @@ def parse_date(value, source):
         return date.astimezone(timezone.utc).isoformat()
     except (TypeError, ValueError):
         return None
+    
 def to_int(value):
     """Convertit en entier ; renvoie None si absent ou illisible."""
     try:
@@ -156,10 +161,44 @@ def transform_decodeurs(record):
         "image_credit": clean_text(record.get("media_credit")),
     }
 
+# Fonction de transformation de chaque source
+TRANSFORMERS = {
+    "newsdata": transform_newsdata,
+    "decodeurs": transform_decodeurs,
+    "fakeddit": transform_fakeddit,
+}
+
+
+def transform_records(records):
+    """Applique à chaque enregistrement la transformation de sa source."""
+    transformed = []
+    unknown = 0
+    for record in records:
+        transformer = TRANSFORMERS.get(record.get("source"))
+        if transformer is None:
+            unknown += 1
+            continue
+        transformed.append(transformer(record))
+    logger.info("%d enregistrements transformés, %d de source inconnue", len(transformed), unknown)
+    return transformed
+
+def check_required(records):
+    """Écarte les enregistrements auxquels il manque un champ obligatoire."""
+    valid = []
+    rejected = Counter()
+    for record in records:
+        missing = next((field for field in REQUIRED_FIELDS if not record.get(field)), None)
+        if missing:
+            rejected[missing] += 1
+            continue
+        valid.append(record)
+    logger.info("%d enregistrements complets, %d rejetés", len(valid), sum(rejected.values()))
+    for field, count in rejected.items():
+        logger.info("  rejet – champ manquant %s : %d", field, count)
+    return valid
 
 if __name__ == "__main__":
     records = read_jsonl()
-    decodeurs = [r for r in records if r.get("source") == "decodeurs"]
-    print(transform_decodeurs(decodeurs[0]))
+    records = check_required(transform_records(records))
    
     
