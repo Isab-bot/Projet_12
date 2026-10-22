@@ -197,8 +197,40 @@ def check_required(records):
         logger.info("  rejet – champ manquant %s : %d", field, count)
     return valid
 
+def deduplicate(records):
+    """Garde, pour chaque id, l'enregistrement collecté le plus récemment."""
+    latest = {}
+    for record in records:
+        current = latest.get(record["id"])
+        if current is None or record["collected_at"] > current["collected_at"]:
+            latest[record["id"]] = record
+    logger.info(
+        "%d enregistrements uniques, %d doublons écartés",
+        len(latest), len(records) - len(latest),
+    )
+    return list(latest.values())
+
+def deduplicate(records):
+    """Garde, pour chaque id, l'enregistrement collecté le plus récemment."""
+    latest = {}
+    duplicates = Counter()
+    for record in records:
+        current = latest.get(record["id"])
+        if current is not None:
+            duplicates[record["source"]] += 1
+        if current is None or record["collected_at"] > current["collected_at"]:
+            latest[record["id"]] = record
+    logger.info(
+        "%d enregistrements uniques, %d doublons écartés",
+        len(latest), sum(duplicates.values()),
+    )
+    for source, count in duplicates.items():
+        logger.info("  doublons – %s : %d", source, count)
+    return list(latest.values())
+
+
 if __name__ == "__main__":
     records = read_jsonl()
-    records = check_required(transform_records(records))
+    records = deduplicate(check_required(transform_records(records)))
    
     
