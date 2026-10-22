@@ -133,10 +133,33 @@ def transform_newsdata(record):
         "country": record.get("country"),
         "category": record.get("category"),
     }
+def transform_decodeurs(record):
+    """Transforme un enregistrement Les Décodeurs brut vers le schéma commun."""
+    original_id = record.get("id")
+    return {
+        # Champs communs
+        "id": f"decodeurs:{original_id}" if original_id else None,
+        "original_id": original_id,
+        "source": "decodeurs",
+        "url": record.get("link"),
+        "title": clean_text(record.get("title")),
+        "description": clean_text(record.get("summary")),
+        "image_url": record.get("image_url"),
+        "published_at": parse_date(record.get("published"), "decodeurs"),
+        "collected_at": record.get("collected_at"),
+        "language": "fr",
+        "label": None,
+        "label_source": None,
+        "label_scope": None,
+        # Champs secondaires
+        "image_caption": clean_text(record.get("content")),  # légende de la photo
+        "image_credit": clean_text(record.get("media_credit")),
+    }
+
 
 if __name__ == "__main__":
     records = read_jsonl()
-    newsdata = [r for r in records if r.get("source") == "newsdata"]
-    print(transform_newsdata(newsdata[0]))
+    decodeurs = [r for r in records if r.get("source") == "decodeurs"]
+    print(transform_decodeurs(decodeurs[0]))
    
     
