@@ -40,6 +40,8 @@ IMAGE_EXTENSIONS = {"JPEG": "jpg"}  # sinon : format en minuscules (png, webp, g
 # Identification du client auprès des serveurs (évite le User-Agent par défaut, fortement limité)
 HEADERS = {"User-Agent": "CheckIt-AI-pipeline/0.1 (projet de formation OpenClassrooms)"}
 
+MIN_IMAGE_SIDE = 64  # px : sous ce seuil, icônes (favicons) ou images inexploitables
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -274,6 +276,9 @@ def validate_image(record, session):
     except (OSError, Image.DecompressionBombError):
         return None, "image illisible"
 
+    if min(width, height) < MIN_IMAGE_SIDE:
+        return None, "image trop petite"
+
     # Enregistrement local
     path = existing or IMAGES_DIR / f"{name}.{extension}"
     if not existing:
@@ -303,6 +308,13 @@ def validate_images(records):
     logger.info("%d images valides, %d rejetées", len(valid), sum(rejected.values()))
     for (source, reason), nb in sorted(rejected.items()):
         logger.info("  rejet – %s – %s : %d", source, reason, nb)
+
+    if valid:
+        smallest = min(valid, key=lambda r: r["image_width"] * r["image_height"])
+        logger.info(
+            "  plus petite image : %d x %d px (%s)",
+            smallest["image_width"], smallest["image_height"], smallest["source"],
+        )
     return valid
 
 
@@ -311,4 +323,4 @@ if __name__ == "__main__":
     records = read_jsonl()
     records = deduplicate(check_required(transform_records(records)))
     records = validate_images(records)
-    
+  
