@@ -11,6 +11,19 @@ from email.utils import parsedate_to_datetime
 # --- Configuration ---
 RAW_DIR = Path("data/raw")
 
+# Codes ISO 639-1 (NewsData.io fournit le nom complet de la langue)
+LANGUAGE_CODES = {"french": "fr", "english": "en"}
+
+# Correspondance de 6_way_label vérifiée par croisement avec subreddit (cf. Table 7 de l'article)
+FAKEDDIT_LABELS = {
+    0: "true",
+    1: "satire",
+    2: "false_connection",
+    3: "imposter_content",
+    4: "manipulated_content",
+    5: "misleading_content",
+}
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -60,10 +73,44 @@ def parse_date(value, source):
         return date.astimezone(timezone.utc).isoformat()
     except (TypeError, ValueError):
         return None
+def to_int(value):
+    """Convertit en entier ; renvoie None si absent ou illisible."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def transform_fakeddit(record):
+    """Transforme un enregistrement Fakeddit brut vers le schéma commun."""
+    original_id = record.get("id")
+    return {
+        # Champs communs
+        "id": f"fakeddit:{original_id}" if original_id else None,
+        "original_id": original_id,
+        "source": "fakeddit",
+        "url": None,  # absent du TSV
+        "title": clean_text(record.get("title")),
+        "description": None,
+        "image_url": record.get("image_url"),
+        "published_at": parse_date(record.get("created_utc"), "fakeddit"),
+        "collected_at": record.get("collected_at"),
+        "language": "en",
+        "label": FAKEDDIT_LABELS.get(record.get("6_way_label")),
+        "label_source": "distant_supervision",
+        "label_scope": "post",
+        # Champs secondaires
+        "subreddit": record.get("subreddit"),  # jamais en entrée du modèle (fuite de données)
+        "domain": record.get("domain"),
+        "author": record.get("author"),
+        "score": to_int(record.get("score")),
+        "num_comments": to_int(record.get("num_comments")),
+        "upvote_ratio": record.get("upvote_ratio"),
+    }
 
 if __name__ == "__main__":
-    print(parse_date("2026-10-16 21:38:51", "newsdata"))
-    print(parse_date("Fri, 16 Oct 2026 17:59:32 +0200", "decodeurs"))
-    print(parse_date(1551398400.0, "fakeddit"))
-    print(parse_date("pas une date", "decodeurs"))
-    read_jsonl()
+    records = read_jsonl()
+    fakeddit = [r for r in records if r.get("source") == "fakeddit"]
+    print(transform_fakeddit(fakeddit[0]))
+   
+    #read_jsonl()
