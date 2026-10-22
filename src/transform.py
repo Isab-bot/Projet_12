@@ -108,9 +108,35 @@ def transform_fakeddit(record):
         "upvote_ratio": record.get("upvote_ratio"),
     }
 
+def transform_newsdata(record):
+    """Transforme un enregistrement NewsData.io brut vers le schéma commun."""
+    original_id = record.get("article_id")
+    return {
+        # Champs communs
+        "id": f"newsdata:{original_id}" if original_id else None,
+        "original_id": original_id,
+        "source": "newsdata",
+        "url": record.get("link"),
+        "title": clean_text(record.get("title")),
+        "description": clean_text(record.get("description")),
+        "image_url": record.get("image_url"),
+        "published_at": parse_date(record.get("pubDate"), "newsdata"),
+        "collected_at": record.get("collected_at"),
+        "language": LANGUAGE_CODES.get(record.get("language")),
+        "label": None,
+        "label_source": None,
+        "label_scope": None,
+        # Champs secondaires
+        "source_name": record.get("source_name"),
+        "source_url": record.get("source_url"),
+        "source_priority": record.get("source_priority"),  # métadonnée, jamais un label
+        "country": record.get("country"),
+        "category": record.get("category"),
+    }
+
 if __name__ == "__main__":
     records = read_jsonl()
-    fakeddit = [r for r in records if r.get("source") == "fakeddit"]
-    print(transform_fakeddit(fakeddit[0]))
+    newsdata = [r for r in records if r.get("source") == "newsdata"]
+    print(transform_newsdata(newsdata[0]))
    
-    #read_jsonl()
+    
