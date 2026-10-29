@@ -70,8 +70,7 @@ def run(path=INPUT_FILE, sample_size=SAMPLE_SIZE, seed=SEED):
     if df is None:
         return 0
     records = clean_records(parse_rows(sample_dataset(df, sample_size, seed)))
-    records = clean_records(parse_entries(entries))
-    saved = len(records) if records and save_jsonl(records, "decodeurs") else 0
+    saved = len(records) if records and save_jsonl(records, "fakeddit") else 0
     logger.info("Extraction terminée : %d entrées sauvegardées", saved)
     return saved
 
