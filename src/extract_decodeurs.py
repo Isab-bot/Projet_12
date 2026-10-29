@@ -60,7 +60,6 @@ def run(url=FEED_URL):
     if entries is None:
         return 0
     records = clean_records(parse_entries(entries))
-    records = clean_records(parse_entries(entries))
     saved = len(records) if records and save_jsonl(records, "decodeurs") else 0
     logger.info("Extraction terminée : %d entrées sauvegardées", saved)
     return saved
