@@ -311,14 +311,21 @@ def validate_images(records):
     return valid
 
 def export_jsonl(records, path=PROCESSED_PATH):
-    """Écrit les enregistrements propres en JSON Lines ; renvoie le chemin, ou None en cas d'échec."""
+    """Écrit les enregistrements propres en JSON Lines ; renvoie le chemin, ou None en cas d'échec.
+
+    L'écriture se fait dans un fichier temporaire, renommé en fichier final une fois complet :
+    une interruption ne laisse jamais un fichier final partiellement écrit.
+    """
+    temp_path = path.with_suffix(".jsonl.tmp")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", encoding="utf-8") as file:
+        with temp_path.open("w", encoding="utf-8") as file:
             for record in records:
                 file.write(json.dumps(record, ensure_ascii=False) + "\n")
+        temp_path.replace(path)  # renommage atomique
     except OSError as error:
         logger.error("Écriture impossible : %s (%s)", path, error)
+        temp_path.unlink(missing_ok=True)  # supprime le fichier temporaire s'il existe
         return None
     logger.info("%d enregistrements exportés : %s", len(records), path)
     return path
