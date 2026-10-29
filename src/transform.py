@@ -213,18 +213,6 @@ def check_required(records):
         logger.info("  rejet – champ manquant %s : %d", field, count)
     return valid
 
-def deduplicate(records):
-    """Garde, pour chaque id, l'enregistrement collecté le plus récemment."""
-    latest = {}
-    for record in records:
-        current = latest.get(record["id"])
-        if current is None or record["collected_at"] > current["collected_at"]:
-            latest[record["id"]] = record
-    logger.info(
-        "%d enregistrements uniques, %d doublons écartés",
-        len(latest), len(records) - len(latest),
-    )
-    return list(latest.values())
 
 def deduplicate(records):
     """Garde, pour chaque id, l'enregistrement collecté le plus récemment."""
