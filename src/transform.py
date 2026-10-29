@@ -76,11 +76,14 @@ def clean_text(text):
     text = re.sub(r"\s+", " ", text).strip()      # blancs multiples -> un espace
     return text or None
 
-def parse_date(value, source):
+def parse_date(value, source, tz=None):
     """Convertit une date brute en chaîne ISO 8601 UTC ; renvoie None si illisible."""
     try:
         if source == "newsdata":
-            # pubDate sans fuseau ; pubDateTZ vaut "UTC" dans les données observées
+            # pubDate est sans fuseau : on contrôle pubDateTZ au lieu de supposer l'UTC
+            if tz != "UTC":
+                logger.warning("Fuseau NewsData.io non géré : %s", tz)
+                return None
             date = datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
         elif source == "decodeurs":
             # format des flux RSS : "Fri, 16 Oct 2026 17:59:32 +0200"
@@ -141,7 +144,7 @@ def transform_newsdata(record):
         "title": clean_text(record.get("title")),
         "description": clean_text(record.get("description")),
         "image_url": record.get("image_url"),
-        "published_at": parse_date(record.get("pubDate"), "newsdata"),
+        "published_at": parse_date(record.get("pubDate"), "newsdata", record.get("pubDateTZ")),
         "collected_at": record.get("collected_at"),
         "language": LANGUAGE_CODES.get(record.get("language")),
         "label": None,
