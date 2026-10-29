@@ -257,8 +257,8 @@ def validate_image(record, session):
             content = response.content
     except requests.HTTPError as error:
         return None, f"erreur HTTP {error.response.status_code}"
-    except requests.RequestException:
-        return None, "image inaccessible (connexion ou délai)"
+    except requests.RequestException as error:
+        return None, f"image inaccessible ({type(error).__name__})"
 
     # 2. Nature du fichier et 3. dimensions
     try:
@@ -277,7 +277,8 @@ def validate_image(record, session):
     if not existing:
         try:
             path.write_bytes(content)
-        except OSError:
+        except OSError as error:
+            logger.warning("Écriture impossible : %s (%s)", path, error)
             return None, "écriture impossible"
 
     return {**record, "image_path": path.as_posix(), "image_width": width, "image_height": height}, None
