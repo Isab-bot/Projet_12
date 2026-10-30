@@ -350,8 +350,9 @@ def run():
     records = read_jsonl()
     records = deduplicate(check_required(transform_records(records)))
     records = validate_images(records)
-    return len(records) if export_jsonl(records) else 0
-
+    if not export_jsonl(records):
+        raise RuntimeError("Échec de l'export de publications.jsonl")
+    return len(records)
 
 if __name__ == "__main__":
     run()
