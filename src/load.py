@@ -28,6 +28,17 @@ COLUMNS = [
     "image_url", "image_path", "image_width", "image_height",
 ]
 
+# Requête d'insertion : mise à jour seulement si la collecte entrante est plus récente
+ALL_COLUMNS = COLUMNS + ["metadata"]
+_columns = ", ".join(ALL_COLUMNS)
+_placeholders = ", ".join(["%s"] * len(ALL_COLUMNS))
+_updates = ", ".join(f"{column} = EXCLUDED.{column}" for column in ALL_COLUMNS if column != "id")
+INSERT_SQL = (
+    f"INSERT INTO publications ({_columns}) VALUES ({_placeholders}) "
+    f"ON CONFLICT (id) DO UPDATE SET {_updates} "
+    "WHERE EXCLUDED.collected_at > publications.collected_at"
+)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -67,9 +78,21 @@ def to_row(record):
     metadata = {key: value for key, value in record.items() if key not in COLUMNS}
     return (*values, Jsonb(metadata))
 
+def load_rows(connection, rows):
+    """Insère ou met à jour les publications ; renvoie (insérées, mises à jour, inchangées)."""
+    with connection.cursor() as cursor:
+        before = cursor.execute("SELECT COUNT(*) FROM publications").fetchone()[0]
+        cursor.executemany(INSERT_SQL, rows)
+        affected = cursor.rowcount
+        after = cursor.execute("SELECT COUNT(*) FROM publications").fetchone()[0]
+    inserted = after - before
+    updated = affected - inserted
+    unchanged = len(rows) - affected
+    logger.info("%d insérées, %d mises à jour, %d inchangées", inserted, updated, unchanged)
+    return inserted, updated, unchanged
+
 if __name__ == "__main__":
-    # Test provisoire : métadonnées de la première publication de chaque source
+    # Test provisoire, remplacé plus tard par run()
     rows = [to_row(record) for record in read_publications()]
-    for source in ("fakeddit", "newsdata", "decodeurs"):
-        row = next(row for row in rows if row[2] == source)
-        logger.info("%s : %s", source, row[-1].obj)
+    with get_connection() as connection:
+        load_rows(connection, rows)
