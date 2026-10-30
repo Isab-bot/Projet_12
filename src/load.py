@@ -15,8 +15,8 @@ DB_PARAMS = {
     "host": os.getenv("POSTGRES_HOST"),
     "port": os.getenv("POSTGRES_PORT"),
     "dbname": os.getenv("POSTGRES_DB"),
-    "user": os.getenv("POSTGRES_USER"),
-    "password": os.getenv("POSTGRES_PASSWORD"),
+    "user": os.getenv("POSTGRES_LOADER_USER"),
+    "password": os.getenv("POSTGRES_LOADER_PASSWORD"),
 }
 
 PROCESSED_PATH = Path("data/processed/publications.jsonl")
