@@ -2,19 +2,24 @@
 import json
 import logging
 from pathlib import Path
+import hmac
 import html
 import re
 import unicodedata
+import os
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from collections import Counter
 import hashlib
 from io import BytesIO
+from dotenv import load_dotenv
 
 import requests
 from PIL import Image
 
 # --- Configuration ---
+
+
 RAW_DIR = Path("data/raw")
 
 # Codes ISO 639-1 (NewsData.io fournit le nom complet de la langue)
@@ -50,6 +55,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+load_dotenv()
+PSEUDONYMIZATION_KEY = os.getenv("PSEUDONYMIZATION_KEY")
 
 def read_jsonl(raw_dir=RAW_DIR):
     """Lit tous les fichiers JSON Lines bruts et renvoie la liste des enregistrements."""
@@ -104,6 +111,13 @@ def to_int(value):
     except (TypeError, ValueError):
         return None
 
+def pseudonymize(value):
+    """Remplace une valeur personnelle par son empreinte HMAC-SHA-256 ; None reste None."""
+    if value is None:
+        return None
+    if not PSEUDONYMIZATION_KEY:
+        raise RuntimeError("PSEUDONYMIZATION_KEY absente de .env")
+    return hmac.new(PSEUDONYMIZATION_KEY.encode(), value.encode(), hashlib.sha256).hexdigest()
 
 def transform_fakeddit(record):
     """Transforme un enregistrement Fakeddit brut vers le schéma commun."""
@@ -126,7 +140,7 @@ def transform_fakeddit(record):
         # Champs secondaires
         "subreddit": record.get("subreddit"),  # jamais en entrée du modèle (fuite de données)
         "domain": record.get("domain"),
-        "author": record.get("author"),
+        "author_hash": pseudonymize(record.get("author")),
         "score": to_int(record.get("score")),
         "num_comments": to_int(record.get("num_comments")),
         "upvote_ratio": record.get("upvote_ratio"),

@@ -34,3 +34,10 @@ WHERE published_at > collected_at;
 SELECT COUNT(*) AS sans_metadata
 FROM publications
 WHERE metadata = '{}';
+
+\echo '6. Pseudonymisation des auteurs Fakeddit (attendu : 0 en clair)'
+SELECT COUNT(*) FILTER (WHERE metadata ? 'author')        AS author_en_clair,
+       COUNT(*) FILTER (WHERE metadata ? 'author_hash')   AS avec_author_hash,
+       COUNT(DISTINCT metadata->>'author_hash')           AS auteurs_distincts
+FROM publications
+WHERE source = 'fakeddit';
