@@ -1,0 +1,52 @@
+erDiagram
+    SOURCE ||--o{ PUBLICATION : "fournit"
+    MEDIA |o--o{ PUBLICATION : "édite"
+    PUBLICATION ||--|| IMAGE : "illustrée par"
+    PUBLICATION ||--o{ LABEL : "reçoit"
+
+    SOURCE {
+        string name PK "newsdata, decodeurs, fakeddit"
+        string access_type "API, flux RSS, dataset"
+        string origin_format "JSON, XML, TSV"
+        boolean labelled
+        string documentation_url
+    }
+    MEDIA {
+        string source_url PK
+        string source_name
+        int source_priority "métadonnée, jamais un label"
+    }
+    PUBLICATION {
+        string id PK "préfixe de source + id d'origine"
+        string source FK
+        string original_id
+        string url "null pour Fakeddit"
+        string title
+        string description "null si absente"
+        datetime published_at "UTC"
+        datetime collected_at "UTC"
+        string language "ISO 639-1"
+        list country "NewsData.io"
+        list category "NewsData.io"
+        string subreddit "Fakeddit, jamais en entrée du modèle"
+        string domain "Fakeddit"
+        string author_hash "Fakeddit"
+        int score "Fakeddit"
+        int num_comments "Fakeddit"
+        float upvote_ratio "Fakeddit"
+    }
+    IMAGE {
+        string image_path PK "empreinte SHA-256 de l'id"
+        string publication_id FK
+        string image_url
+        int image_width
+        int image_height
+        string image_caption "Décodeurs"
+        string image_credit "Décodeurs"
+    }
+    LABEL {
+        string publication_id FK
+        string label "6 catégories"
+        string label_source "distant_supervision"
+        string label_scope "post"
+    }
