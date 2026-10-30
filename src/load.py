@@ -6,6 +6,8 @@ from pathlib import Path
 
 import psycopg
 from dotenv import load_dotenv
+from psycopg.types.json import Jsonb
+
 
 # --- Configuration ---
 load_dotenv()
@@ -18,6 +20,13 @@ DB_PARAMS = {
 }
 
 PROCESSED_PATH = Path("data/processed/publications.jsonl")
+
+# Colonnes de la table publications, dans l'ordre de l'INSERT (hors metadata)
+COLUMNS = [
+    "id", "original_id", "source", "url", "title", "description", "language",
+    "published_at", "collected_at", "label", "label_source", "label_scope",
+    "image_url", "image_path", "image_width", "image_height",
+]
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,6 +61,15 @@ def read_publications(path=PROCESSED_PATH):
     logger.info("%d publications lues : %s", len(records), path)
     return records
 
+def to_row(record):
+    """Sépare un enregistrement en valeurs de colonnes et métadonnées JSONB."""
+    values = [record.get(column) for column in COLUMNS]
+    metadata = {key: value for key, value in record.items() if key not in COLUMNS}
+    return (*values, Jsonb(metadata))
+
 if __name__ == "__main__":
-    # Test provisoire, remplacé plus tard par run()
-    records = read_publications()
+    # Test provisoire : métadonnées de la première publication de chaque source
+    rows = [to_row(record) for record in read_publications()]
+    for source in ("fakeddit", "newsdata", "decodeurs"):
+        row = next(row for row in rows if row[2] == source)
+        logger.info("%s : %s", source, row[-1].obj)
