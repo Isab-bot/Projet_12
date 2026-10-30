@@ -65,14 +65,15 @@ def parse_rows(sample):
 
 
 def run(path=INPUT_FILE, sample_size=SAMPLE_SIZE, seed=SEED):
-    """Enchaîne lecture, échantillonnage, parsing, nettoyage et sauvegarde."""
+    """Enchaîne lecture, échantillonnage, parsing, nettoyage et sauvegarde ; lève une exception en cas d'échec."""
     df = load_dataset(path)
     if df is None:
-        return 0
+        raise RuntimeError(f"Lecture impossible du fichier Fakeddit : {path}")
     records = clean_records(parse_rows(sample_dataset(df, sample_size, seed)))
-    saved = len(records) if records and save_jsonl(records, "fakeddit") else 0
-    logger.info("Extraction terminée : %d entrées sauvegardées", saved)
-    return saved
+    if records and not save_jsonl(records, "fakeddit"):
+        raise RuntimeError("Échec de la sauvegarde des entrées Fakeddit")
+    logger.info("Extraction terminée : %d entrées sauvegardées", len(records))
+    return len(records)
 
 
 if __name__ == "__main__":

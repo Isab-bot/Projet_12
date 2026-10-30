@@ -73,10 +73,11 @@ def run(language=LANGUAGE, max_pages=MAX_PAGES):
         logger.info("Page %d", page_number)
         data = fetch_page(page_token, language)
         if data is None:
-            break
+            raise RuntimeError(f"Échec de l'appel à NewsData.io (page {page_number})")
         records = clean_records(parse_articles(data))
-        if records and save_jsonl(records, "newsdata"):
-            total += len(records)
+        if records and not save_jsonl(records, "newsdata"):
+            raise RuntimeError("Échec de la sauvegarde des articles NewsData.io")
+        total += len(records)
             
         page_token = data.get("nextPage")
         if not page_token:

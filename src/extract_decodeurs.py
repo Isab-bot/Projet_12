@@ -55,14 +55,15 @@ def parse_entries(entries):
 
 
 def run(url=FEED_URL):
-    """Enchaîne connexion, parsing, nettoyage et sauvegarde."""
+    """Enchaîne connexion, parsing, nettoyage et sauvegarde ; lève une exception en cas d'échec."""
     entries = fetch_feed(url)
     if entries is None:
-        return 0
+        raise RuntimeError(f"Échec de l'accès au flux : {url}")
     records = clean_records(parse_entries(entries))
-    saved = len(records) if records and save_jsonl(records, "decodeurs") else 0
-    logger.info("Extraction terminée : %d entrées sauvegardées", saved)
-    return saved
+    if records and not save_jsonl(records, "decodeurs"):
+        raise RuntimeError("Échec de la sauvegarde des entrées Les Décodeurs")
+    logger.info("Extraction terminée : %d entrées sauvegardées", len(records))
+    return len(records)
 
 
 if __name__ == "__main__":
