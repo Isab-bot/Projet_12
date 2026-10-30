@@ -91,8 +91,18 @@ def load_rows(connection, rows):
     logger.info("%d insérées, %d mises à jour, %d inchangées", inserted, updated, unchanged)
     return inserted, updated, unchanged
 
-if __name__ == "__main__":
-    # Test provisoire, remplacé plus tard par run()
-    rows = [to_row(record) for record in read_publications()]
+def run(path=PROCESSED_PATH):
+    """Enchaîne lecture, préparation et chargement ; lève une exception en cas d'échec."""
+    rows = [to_row(record) for record in read_publications(path)]
     with get_connection() as connection:
-        load_rows(connection, rows)
+        try:
+            counts = load_rows(connection, rows)
+        except psycopg.Error as error:
+            logger.error("Chargement annulé, aucune ligne enregistrée : %s", error)
+            raise
+    logger.info("Chargement terminé")
+    return counts
+
+
+if __name__ == "__main__":
+    run()
