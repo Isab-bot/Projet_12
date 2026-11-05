@@ -148,6 +148,7 @@ services:
         echo "Airflow version:"
         /entrypoint airflow version
         /entrypoint airflow config list >/dev/null
+        /entrypoint airflow pools set checkit_publications 1 "Transformation et chargement : une tâche à la fois"
         chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/{logs,dags,plugins,config}
     environment:
       <<: *airflow-common-env
