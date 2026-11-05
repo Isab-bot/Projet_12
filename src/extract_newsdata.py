@@ -46,7 +46,14 @@ def fetch_page(page_token=None, language=LANGUAGE):
     except requests.RequestException as error:
         logger.error("Échec de l'appel à l'API : %s", error)
         return None
-    data = response.json()
+    try:
+        data = response.json()
+    except requests.JSONDecodeError:
+        logger.error("Réponse non JSON (statut %d) : %s", response.status_code, response.text[:200])
+        return None
+    if not isinstance(data, dict):
+        logger.error("Structure de réponse inattendue : %s", str(data)[:200])
+        return None
     if data.get("status") != "success":
         logger.error("Réponse en erreur : %s", data.get("results"))
         return None
