@@ -4,7 +4,9 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-OUTPUT_DIR = Path("data/raw")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+OUTPUT_DIR = DATA_DIR / "raw"
 logger = logging.getLogger(__name__)
 
 

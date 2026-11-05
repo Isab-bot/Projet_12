@@ -8,6 +8,7 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg.types.json import Jsonb
 
+from common import DATA_DIR
 
 # --- Configuration ---
 load_dotenv()
@@ -19,7 +20,7 @@ DB_PARAMS = {
     "password": os.getenv("POSTGRES_LOADER_PASSWORD"),
 }
 
-PROCESSED_PATH = Path("data/processed/publications.jsonl")
+PROCESSED_PATH = DATA_DIR / "processed" / "publications.jsonl"
 
 # Colonnes de la table publications, dans l'ordre de l'INSERT (hors metadata)
 COLUMNS = [

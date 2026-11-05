@@ -17,10 +17,15 @@ from dotenv import load_dotenv
 import requests
 from PIL import Image
 
+
+from common import DATA_DIR, PROJECT_ROOT
+
 # --- Configuration ---
 
 
-RAW_DIR = Path("data/raw")
+RAW_DIR = DATA_DIR / "raw"
+IMAGES_DIR = DATA_DIR / "images"
+PROCESSED_PATH = DATA_DIR / "processed" / "publications.jsonl"
 
 # Codes ISO 639-1 (NewsData.io fournit le nom complet de la langue)
 LANGUAGE_CODES = {"french": "fr", "english": "en"}
@@ -38,7 +43,7 @@ FAKEDDIT_LABELS = {
 # Champs toujours renseignés dans le schéma commun
 REQUIRED_FIELDS = ["id", "source", "title", "image_url", "published_at", "collected_at", "language"]
 
-IMAGES_DIR = Path("data/images")
+
 TIMEOUT = 10  # secondes
 IMAGE_EXTENSIONS = {"JPEG": "jpg"}  # sinon : format en minuscules (png, webp, gif)
 
@@ -47,7 +52,7 @@ HEADERS = {"User-Agent": "CheckIt-AI-pipeline/0.1 (projet de formation OpenClass
 
 MIN_IMAGE_SIDE = 64  # px : sous ce seuil, icônes (favicons) ou images inexploitables
 
-PROCESSED_PATH = Path("data/processed/publications.jsonl")
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -295,7 +300,7 @@ def validate_image(record, session):
             logger.warning("Écriture impossible : %s (%s)", path, error)
             return None, "écriture impossible"
 
-    return {**record, "image_path": path.as_posix(), "image_width": width, "image_height": height}, None
+    return {**record, "image_path": path.relative_to(PROJECT_ROOT).as_posix(), "image_width": width, "image_height": height}, None
 
 
 def validate_images(records):

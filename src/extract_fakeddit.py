@@ -9,7 +9,7 @@ import pandas as pd
 from common import clean_records, save_jsonl
 
 # --- Configuration ---
-INPUT_FILE = Path("data/fakeddit/multimodal_train.tsv")
+INPUT_FILE = DATA_DIR / "fakeddit" / "multimodal_train.tsv"
 SAMPLE_SIZE = 2000
 SEED = 42
 FIELDS = [
