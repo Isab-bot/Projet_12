@@ -350,11 +350,15 @@ def export_jsonl(records, path=PROCESSED_PATH):
     logger.info("%d enregistrements exportés : %s", len(records), path)
     return path
 
-def run():
-    """Exécute le pipeline de transformation ; renvoie le nombre d'enregistrements exportés."""
-    records = read_jsonl()
+def run(raw_dir=RAW_DIR):
+    """Enchaîne lecture, transformation, contrôles, images et export ; lève une exception en cas d'échec."""
+    records = read_jsonl(raw_dir)
+    if not records:
+        raise RuntimeError(f"Aucun enregistrement brut trouvé dans {raw_dir}")
     records = deduplicate(check_required(transform_records(records)))
     records = validate_images(records)
+    if not records:
+        raise RuntimeError("Aucun enregistrement valide à exporter")
     if not export_jsonl(records):
         raise RuntimeError("Échec de l'export de publications.jsonl")
     return len(records)
