@@ -7,3 +7,6 @@ data/
 rapports/
 
 .pytest_cache/
+
+logs/
+config/

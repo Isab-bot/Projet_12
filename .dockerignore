@@ -1,0 +1,5 @@
+data/
+.venv/
+rapports/
+.env
+.git/
