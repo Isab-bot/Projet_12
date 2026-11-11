@@ -28,7 +28,7 @@ def checkit_fakeddit_init():
         import extract_fakeddit
         return extract_fakeddit.run()
 
-    @task(task_id="transform", pool=POOL, retries=0)
+    @task(task_id="transform", pool=POOL,  retries=1, retry_delay=timedelta(minutes=1))
     def run_transform():
         import transform
         return transform.run()
@@ -38,7 +38,13 @@ def checkit_fakeddit_init():
         import load
         return load.run()
 
-    run_extract_fakeddit() >> run_transform() >> run_load()
+    @task(task_id="archive", pool=POOL, retries=1, retry_delay=timedelta(minutes=1))
+    def run_archive(transform_result):
+        from common import archive_raw_files
+        return archive_raw_files(transform_result["raw_files"])
+
+    transformed = run_transform()
+    run_extract_fakeddit() >> transformed >> run_load() >> run_archive(transformed)
 
 
 checkit_fakeddit_init()

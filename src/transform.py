@@ -64,10 +64,12 @@ load_dotenv()
 PSEUDONYMIZATION_KEY = os.getenv("PSEUDONYMIZATION_KEY")
 
 def read_jsonl(raw_dir=RAW_DIR):
-    """Lit tous les fichiers JSON Lines bruts et renvoie la liste des enregistrements."""
+    """Lit tous les fichiers JSON Lines bruts ; renvoie les enregistrements et les noms des fichiers lus."""
     records = []
+    files = []
     invalid = 0
     for path in sorted(raw_dir.glob("*.jsonl")):
+        files.append(path.name)
         with path.open(encoding="utf-8") as file:
             for line_number, line in enumerate(file, start=1):
                 try:
@@ -75,8 +77,8 @@ def read_jsonl(raw_dir=RAW_DIR):
                 except json.JSONDecodeError:
                     invalid += 1
                     logger.warning("Ligne illisible ignorée : %s, ligne %d", path.name, line_number)
-    logger.info("%d enregistrements lus, %d lignes illisibles", len(records), invalid)
-    return records
+    logger.info("%d enregistrements lus dans %d fichiers, %d lignes illisibles", len(records), len(files), invalid)
+    return records, files
 
 def clean_text(text):
     """Nettoie un texte sans en changer le sens ; renvoie None s'il est vide."""
@@ -351,17 +353,20 @@ def export_jsonl(records, path=PROCESSED_PATH):
     return path
 
 def run(raw_dir=RAW_DIR):
-    """Enchaîne lecture, transformation, contrôles, images et export ; lève une exception en cas d'échec."""
-    records = read_jsonl(raw_dir)
+    """Transforme les fichiers bruts présents ; renvoie le nombre exporté et les fichiers lus."""
+    records, files = read_jsonl(raw_dir)
     if not records:
-        raise RuntimeError(f"Aucun enregistrement brut trouvé dans {raw_dir}")
+        logger.info("Aucun nouvel enregistrement brut dans %s", raw_dir)
+        if not export_jsonl([]):
+            raise RuntimeError("Échec de l'export de publications.jsonl")
+        return {"exported": 0, "raw_files": files}
     records = deduplicate(check_required(transform_records(records)))
     records = validate_images(records)
     if not records:
         raise RuntimeError("Aucun enregistrement valide à exporter")
     if not export_jsonl(records):
         raise RuntimeError("Échec de l'export de publications.jsonl")
-    return len(records)
+    return {"exported": len(records), "raw_files": files}
 
 if __name__ == "__main__":
     run()

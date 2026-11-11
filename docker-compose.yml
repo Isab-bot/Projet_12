@@ -42,6 +42,8 @@ x-airflow-common:
     &airflow-common-depends-on
     airflow-postgres:
       condition: service_healthy
+    postgres:
+      condition: service_healthy
 
 services:
   # --- Base de données du projet (table publications) ---
@@ -60,6 +62,14 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d
 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+    
   # --- Base de métadonnées d'Airflow (état des DAG et des tâches) ---
   airflow-postgres:
     image: postgres:16

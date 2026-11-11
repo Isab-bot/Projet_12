@@ -95,6 +95,9 @@ def load_rows(connection, rows):
 def run(path=PROCESSED_PATH):
     """Enchaîne lecture, préparation et chargement ; lève une exception en cas d'échec."""
     rows = [to_row(record) for record in read_publications(path)]
+    if not rows:
+        logger.info("Aucune publication à charger")
+        return 0, 0, 0
     with get_connection() as connection:
         try:
             counts = load_rows(connection, rows)

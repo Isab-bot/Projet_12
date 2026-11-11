@@ -36,7 +36,8 @@ def checkit_daily():
         return extract_newsdata.run()
 
     # Attend la fin de toutes les extractions ; s'exécute si au moins une a réussi
-    @task(task_id="transform", trigger_rule="all_done_min_one_success", pool=POOL, retries=0)
+    @task(task_id="transform", trigger_rule="all_done_min_one_success", pool=POOL,
+          retries=1, retry_delay=timedelta(minutes=1))
     def run_transform():
         import transform
         return transform.run()
@@ -47,6 +48,11 @@ def checkit_daily():
         import load
         return load.run()
 
+    @task(task_id="archive", pool=POOL, retries=1, retry_delay=timedelta(minutes=1))
+    def run_archive(transform_result):
+        from common import archive_raw_files
+        return archive_raw_files(transform_result["raw_files"])
+
     # Règle par défaut (all_success) : en échec si une extraction a échoué.
     # Tâche finale : l'exécution entière apparaît alors en rouge, même si le chargement a réussi.
     @task(task_id="check_extractions")
@@ -54,7 +60,8 @@ def checkit_daily():
         """Rend visible l'échec d'une extraction au niveau de l'exécution du DAG."""
 
     extractions = [run_extract_decodeurs(), run_extract_newsdata()]
-    extractions >> run_transform() >> run_load()
+    transformed = run_transform()
+    extractions >> transformed >> run_load() >> run_archive(transformed)
     extractions >> check_extractions()
 
 
