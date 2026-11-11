@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from common import clean_records, save_jsonl
+from common import DATA_DIR, clean_records, save_jsonl
 
 # --- Configuration ---
 INPUT_FILE = DATA_DIR / "fakeddit" / "multimodal_train.tsv"
