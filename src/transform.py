@@ -330,7 +330,7 @@ def validate_images(records):
             "  plus petite image : %d x %d px (%s)",
             smallest["image_width"], smallest["image_height"], smallest["source"],
         )
-    return valid
+    return valid, rejected
 
 def export_jsonl(records, path=PROCESSED_PATH):
     """Écrit les enregistrements propres en JSON Lines ; renvoie le chemin, ou None en cas d'échec.
@@ -352,21 +352,39 @@ def export_jsonl(records, path=PROCESSED_PATH):
     logger.info("%d enregistrements exportés : %s", len(records), path)
     return path
 
+def build_metrics(records, transformed, complete, unique, valid, rejected):
+    """Calcule les comptes de chaque étape, par différence de longueur."""
+    rejected_by_source = {}
+    for (source, reason), nb in rejected.items():
+        rejected_by_source.setdefault(source, {})[reason] = nb
+    fakeddit_unique = Counter(r["label"] for r in unique if r["source"] == "fakeddit")
+    fakeddit_valid = Counter(r["label"] for r in valid if r["source"] == "fakeddit")
+    return {
+        "read": len(records),
+        "missing_fields": len(transformed) - len(complete),
+        "duplicates": len(complete) - len(unique),
+        "unique_by_source": dict(Counter(r["source"] for r in unique)),
+        "rejected_by_source": rejected_by_source,
+        "unique_by_label": dict(fakeddit_unique),
+        "rejected_by_label": dict(fakeddit_unique - fakeddit_valid),
+    }
+
 def run(raw_dir=RAW_DIR):
-    """Transforme les fichiers bruts présents ; renvoie le nombre exporté et les fichiers lus."""
+    """Transforme les fichiers bruts présents ; renvoie l'export, les fichiers lus et les métriques."""
     records, files = read_jsonl(raw_dir)
-    if not records:
-        logger.info("Aucun nouvel enregistrement brut dans %s", raw_dir)
-        if not export_jsonl([]):
-            raise RuntimeError("Échec de l'export de publications.jsonl")
-        return {"exported": 0, "raw_files": files}
-    records = deduplicate(check_required(transform_records(records)))
-    records = validate_images(records)
-    if not records:
+    transformed = transform_records(records)
+    complete = check_required(transformed)
+    unique = deduplicate(complete)
+    valid, rejected = validate_images(unique)
+    if records and not valid:
         raise RuntimeError("Aucun enregistrement valide à exporter")
-    if not export_jsonl(records):
+    if not export_jsonl(valid):
         raise RuntimeError("Échec de l'export de publications.jsonl")
-    return {"exported": len(records), "raw_files": files}
+    return {
+        "exported": len(valid),
+        "raw_files": files,
+        "metrics": build_metrics(records, transformed, complete, unique, valid, rejected),
+    }
 
 if __name__ == "__main__":
     run()

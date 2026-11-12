@@ -4,6 +4,7 @@ import pytest
 import load
 import transform
 from common import archive_raw_files
+from collections import Counter
 
 
 def make_raw_files(folder, names):
@@ -42,9 +43,26 @@ def test_transform_with_no_new_file(tmp_path, monkeypatch):
         return True
 
     monkeypatch.setattr(transform, "export_jsonl", fake_export)
-    assert transform.run(raw_dir=tmp_path) == {"exported": 0, "raw_files": []}
-    assert exported == [[]]  # un fichier vide est exporté
+    result = transform.run(raw_dir=tmp_path)
+    assert result["exported"] == 0
+    assert result["raw_files"] == []
+    assert result["metrics"]["read"] == 0
+    assert exported == [[]]
 
+def test_build_metrics():
+    unique = [
+        {"source": "fakeddit", "label": "satire"},
+        {"source": "fakeddit", "label": "true"},
+        {"source": "newsdata", "label": None},
+    ]
+    valid = [unique[1], unique[2]]
+    rejected = Counter({("fakeddit", "erreur HTTP 404"): 1})
+    metrics = transform.build_metrics(unique + [unique[0]], unique, unique, unique, valid, rejected)
+    assert metrics["read"] == 4
+    assert metrics["duplicates"] == 0
+    assert metrics["unique_by_source"] == {"fakeddit": 2, "newsdata": 1}
+    assert metrics["rejected_by_source"] == {"fakeddit": {"erreur HTTP 404": 1}}
+    assert metrics["rejected_by_label"] == {"satire": 1}
 
 def test_load_with_empty_file(tmp_path):
     path = tmp_path / "publications.jsonl"

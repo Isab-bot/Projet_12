@@ -73,11 +73,17 @@ def parse_articles(data):
     return records
 
 def run(language=LANGUAGE, max_pages=MAX_PAGES):
-    """Enchaîne connexion, parsing, nettoyage et sauvegarde sur plusieurs pages."""
+    """Enchaîne connexion, parsing, nettoyage et sauvegarde sur plusieurs pages.
+
+    Renvoie le nombre d'articles sauvegardés et le nombre de requêtes envoyées
+    (1 requête = 1 crédit NewsData.io).
+    """
     page_token = None
     total = 0
+    requests_sent = 0
     for page_number in range(1, max_pages + 1):
         logger.info("Page %d", page_number)
+        requests_sent += 1
         data = fetch_page(page_token, language)
         if data is None:
             raise RuntimeError(f"Échec de l'appel à NewsData.io (page {page_number})")
@@ -85,15 +91,14 @@ def run(language=LANGUAGE, max_pages=MAX_PAGES):
         if records and not save_jsonl(records, "newsdata"):
             raise RuntimeError("Échec de la sauvegarde des articles NewsData.io")
         total += len(records)
-            
         page_token = data.get("nextPage")
         if not page_token:
             logger.info("Plus de page disponible")
             break
         if page_number < max_pages:
             time.sleep(PAUSE_SECONDS)
-    logger.info("Extraction terminée : %d articles sauvegardés", total)
-    return total
+    logger.info("Extraction terminée : %d articles sauvegardés, %d requêtes", total, requests_sent)
+    return {"saved": total, "requests": requests_sent}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extraction d'articles NewsData.io")
